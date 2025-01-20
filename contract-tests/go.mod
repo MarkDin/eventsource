@@ -1,7 +1,7 @@
-module github.com/launchdarkly/eventsource/contract-tests
+module github.com/MarkDin/eventsource/contract-tests
 
 go 1.17
 
-replace github.com/launchdarkly/eventsource => ../
+replace github.com/MarkDin/eventsource => ../
 
-require github.com/launchdarkly/eventsource v1.7.1
+require github.com/MarkDin/eventsource v1.7.1

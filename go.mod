@@ -1,4 +1,4 @@
-module github.com/launchdarkly/eventsource
+module github.com/MarkDin/eventsource
 
 go 1.17
 

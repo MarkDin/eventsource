@@ -1,5 +1,5 @@
-[![GoDoc](https://godoc.org/github.com/launchdarkly/eventsource?status.svg)](http://godoc.org/github.com/launchdarkly/eventsource)
-[![Actions Status](https://github.com/launchdarkly/eventsource/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/launchdarkly/eventsource/actions/workflows/ci.yml)
+[![GoDoc](https://godoc.org/github.com/MarkDin/eventsource?status.svg)](http://godoc.org/github.com/MarkDin/eventsource)
+[![Actions Status](https://github.com/MarkDin/eventsource/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MarkDin/eventsource/actions/workflows/ci.yml)
 
 # Eventsource
 
@@ -21,11 +21,11 @@ become available that are useful to the SDK.
 
 ## Installation
 
-    go get github.com/launchdarkly/eventsource
+    go get github.com/MarkDin/eventsource
 
 ## Documentation
 
-* [Reference](http://godoc.org/github.com/launchdarkly/eventsource)
+* [Reference](http://godoc.org/github.com/MarkDin/eventsource)
 
 ## License
 

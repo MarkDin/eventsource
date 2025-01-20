@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/launchdarkly/eventsource"
+	"github.com/MarkDin/eventsource"
 )
 
 type streamEntity struct {

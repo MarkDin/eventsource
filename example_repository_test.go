@@ -3,7 +3,7 @@ package eventsource_test
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/launchdarkly/eventsource"
+	"github.com/MarkDin/eventsource"
 	"net"
 	"net/http"
 )

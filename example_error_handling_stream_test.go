@@ -5,7 +5,7 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/launchdarkly/eventsource"
+	"github.com/MarkDin/eventsource"
 )
 
 //lint:ignore U1000, just some sample code
