@@ -2,8 +2,10 @@ package eventsource
 
 import (
 	"io"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -140,4 +142,47 @@ func TestDecoderTracksLastEventID(t *testing.T) {
 		assert.Equal(t, "", event2.Id())
 		assert.Equal(t, "", requireLastEventID(t, event2))
 	})
+}
+
+func TestGoroutineCleanup(t *testing.T) {
+	before := runtime.NumGoroutine()
+
+	reader := strings.NewReader("data: test\n\n")
+	decoder := NewDecoder(reader)
+
+	// 读取一个事件
+	event, err := decoder.Decode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(event)
+	// 关闭 decoder
+	decoder.Close()
+	// decoder.Decode()
+	// 等待一小段时间确保 goroutine 都已退出
+	time.Sleep(200 * time.Millisecond)
+	after := runtime.NumGoroutine()
+	if after > before {
+		t.Errorf("Goroutine leak detected: before=%d, after=%d", before, after)
+	}
+}
+
+func TestEOFOnClose(t *testing.T) {
+	num := runtime.NumGoroutine()
+	reader := strings.NewReader("data: test\n\n")
+	decoder := NewDecoder(reader)
+
+	// 在另一个 goroutine 中关闭 decoder
+	go func() {
+		// time.Sleep(100 * time.Millisecond)
+		decoder.Close()
+	}()
+	time.Sleep(100 * time.Millisecond)
+	// 这次读取应该返回 EOF
+	_, err := decoder.Decode()
+	if err != io.EOF {
+		t.Errorf("Expected EOF error, got: %v", err)
+	}
+	t.Log(runtime.NumGoroutine(), num)
+	// t.Log(decoder.Decode())
 }

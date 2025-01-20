@@ -2,6 +2,7 @@ package eventsource
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -13,7 +14,7 @@ type publication struct {
 	retry                        int64
 }
 
-//nolint:revive,stylecheck // should be ID; retained for backward compatibility
+//nolint:golint,stylecheck // should be ID; retained for backward compatibility
 func (s *publication) Id() string    { return s.id }
 func (s *publication) Event() string { return s.event }
 func (s *publication) Data() string  { return s.data }
@@ -22,12 +23,40 @@ func (s *publication) Retry() int64  { return s.retry }
 // LastEventID is from a separate interface, EventWithLastID
 func (s *publication) LastEventID() string { return s.lastEventID }
 
+// 1. 首先创建一个包装的 Reader
+type closeableReader struct {
+	*bufio.Reader
+	closed chan struct{}
+}
+
+func newCloseableReader(r *bufio.Reader) *closeableReader {
+	return &closeableReader{
+		Reader: r,
+		closed: make(chan struct{}),
+	}
+}
+
+// 重写 ReadString 方法
+func (r *closeableReader) ReadString(delim byte) (string, error) {
+	select {
+	case <-r.closed:
+		return "", io.EOF
+	default:
+		return r.Reader.ReadString(delim)
+	}
+}
+
+func (r *closeableReader) Close() {
+	close(r.closed)
+}
+
 // A Decoder is capable of reading Events from a stream.
 type Decoder struct {
 	linesCh     <-chan string
 	errorCh     <-chan error
 	readTimeout time.Duration
 	lastEventID string
+	reader      *closeableReader // 新增
 }
 
 // DecoderOption is a common interface for optional configuration parameters that can be
@@ -64,11 +93,13 @@ func DecoderOptionLastEventID(lastEventID string) DecoderOption {
 
 // NewDecoder returns a new Decoder instance that reads events with the given io.Reader.
 func NewDecoder(r io.Reader) *Decoder {
-	bufReader := bufio.NewReader(newNormaliser(r))
-	linesCh, errorCh := newLineStreamChannel(bufReader)
+	baseReader := bufio.NewReader(newNormaliser(r))
+	closeableReader := newCloseableReader(baseReader)
+	linesCh, errorCh := newLineStreamChannel(closeableReader)
 	return &Decoder{
 		linesCh: linesCh,
 		errorCh: errorCh,
+		reader:  closeableReader,
 	}
 }
 
@@ -94,12 +125,19 @@ func (dec *Decoder) Decode() (Event, error) {
 	var timeoutCh <-chan time.Time
 	if dec.readTimeout > 0 {
 		timeoutTimer = time.NewTimer(dec.readTimeout)
-		defer timeoutTimer.Stop()
+		defer func() {
+			if !timeoutTimer.Stop() {
+				<-timeoutCh
+			}
+		}()
 		timeoutCh = timeoutTimer.C
 	}
 ReadLoop:
 	for {
 		select {
+		// 添加对 closed 信号的检查
+		case <-dec.reader.closed:
+			return nil, io.EOF
 		case line := <-dec.linesCh:
 			if timeoutTimer != nil {
 				if !timeoutTimer.Stop() {
@@ -159,20 +197,34 @@ ReadLoop:
  * Returns a channel that will receive lines of text as they are read. On any error
  * from the underlying reader, it stops and posts the error to a second channel.
  */
-func newLineStreamChannel(r *bufio.Reader) (<-chan string, <-chan error) {
+func newLineStreamChannel(r *closeableReader) (<-chan string, <-chan error) {
 	linesCh := make(chan string)
 	errorCh := make(chan error)
 	go func() {
 		defer close(linesCh)
 		defer close(errorCh)
 		for {
-			line, err := r.ReadString('\n')
-			if err != nil {
-				errorCh <- err
+			select {
+			case <-r.closed:
+				fmt.Println("###closed")
 				return
+			default:
+				line, err := r.ReadString('\n')
+				if err != nil {
+					errorCh <- err
+					return
+				}
+				linesCh <- line
 			}
-			linesCh <- line
 		}
 	}()
 	return linesCh, errorCh
+}
+
+// 4. 添加 Close 方法
+func (dec *Decoder) Close() {
+	if dec.reader != nil {
+		dec.reader.Close()
+	}
+	dec.Decode()
 }
